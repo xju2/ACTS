@@ -6,6 +6,7 @@
 
 #include "Python.h"
 #include <string>
+#include <vector>
 
 namespace ActsExamples {
 
@@ -40,9 +41,12 @@ class TrackFindingMLBasedAlgorithm final : public BareAlgorithm {
     private:
 
       bool init_python();
+      static void vector_to_pylist(std::vector<float> const & hids, PyObject* py_hids);
       // configuration
       Config m_cfg;
 
       // pointer to the python function
       PyObject* pFunc;
+};
+
 }

@@ -101,8 +101,14 @@ ActsExamples::TrackParamsEstimationAlgorithm::createSeeds(
                 return std::hypot(lhs->r(), lhs->z()) <
                        std::hypot(rhs->r(), rhs->z());
               });
+    // seeds.emplace_back(
+    //   *spacePointsOnTrack[0], *spacePointsOnTrack[1],
+    //   *spacePointsOnTrack[2],
+    //   spacePointsOnTrack[0]->z());
+
     // Loop over the found space points to find seeds with simple selection
     // @todo add the check of deltaZ
+    bool found_a_seed = false;
     for (size_t ib = 0; ib < spacePointsOnTrack.size() - 2; ++ib) {
       for (size_t im = ib + 1; im < spacePointsOnTrack.size() - 1; ++im) {
         for (size_t it = im + 1; it < spacePointsOnTrack.size(); ++it) {
@@ -115,11 +121,16 @@ ActsExamples::TrackParamsEstimationAlgorithm::createSeeds(
             seeds.emplace_back(*spacePointsOnTrack[ib], *spacePointsOnTrack[im],
                                *spacePointsOnTrack[it],
                                spacePointsOnTrack[im]->z());
+            found_a_seed = true;
+            if(m_cfg.keepOneSeed) break;
           }
         }
+        if (m_cfg.keepOneSeed && found_a_seed) break;
       }
+      if (m_cfg.keepOneSeed && found_a_seed) break;
     }
   }
+  ACTS_INFO("Created " << seeds.size() << " seeds.");
   return seeds;
 }
 

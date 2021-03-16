@@ -81,6 +81,8 @@ class TrackParamsEstimationAlgorithm final : public BareAlgorithm {
     double sigmaQOverP = 0.1 / Acts::UnitConstants::GeV;
     /// Time resolution.
     double sigmaT0 = 1400 * Acts::UnitConstants::s;
+
+    bool keepOneSeed = false;
   };
 
   /// Construct the track parameters making algorithm.
