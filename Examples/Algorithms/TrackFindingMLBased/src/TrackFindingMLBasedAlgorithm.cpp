@@ -134,6 +134,7 @@ ActsExamples::ProcessCode ActsExamples::TrackFindingMLBasedAlgorithm::execute(
     protoTracks.push_back(ProtoTrack());
   }
 
+  // Py_Finalize(); # there are no finalize function... where should I put this?
   ACTS_INFO("Created " << protoTracks.size() << " proto tracks");
   ctx.eventStore.add(m_cfg.outputProtoTracks, std::move(protoTracks));
   return ActsExamples::ProcessCode::SUCCESS;
