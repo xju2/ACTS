@@ -33,8 +33,13 @@ ActsExamples::TrackFindingMLBasedAlgorithm::TrackFindingMLBasedAlgorithm(
 bool ActsExamples::TrackFindingMLBasedAlgorithm::init_python(){
   pFunc = nullptr;
   PyObject *pName, *pModule;
-  // Initialize Python session
-  Py_Initialize();
+
+  wchar_t *program = Py_DecodeLocale("/usr/bin/python", NULL);
+  Py_SetProgramName(program);
+  delete program;
+  
+  Py_InitializeEx(0);  //  it skips initialization registration of signal handlers, which might be useful when Python is embedded
+  PySys_SetArgv(0, (wchar_t**)"dummy");
 
   pName = PyUnicode_FromString(m_cfg.inputMLModuleName.c_str());
   if (pName == NULL){
@@ -44,18 +49,24 @@ bool ActsExamples::TrackFindingMLBasedAlgorithm::init_python(){
   pModule = PyImport_Import(pName);
   Py_DECREF(pName);
 
+  bool is_ready = false;
   if(pModule != NULL) {
     // Import python function
     pFunc = PyObject_GetAttrString(pModule, m_cfg.inputFuncName.c_str());
     Py_DECREF(pModule);
     if (pFunc && PyCallable_Check(pFunc)) {
-      return true;
+      is_ready = true;
     }
   } else {
-      PyErr_Print();
-      throw std::runtime_error("Failed to load track finding function");
+    Py_DECREF(pModule);
   }
-  return false;
+  if (is_ready) {
+    ACTS_INFO("ML-based track finding is ready.");
+  } else {
+    PyErr_Print();
+    throw std::runtime_error("Failed to load track finding function");
+  }
+  return is_ready;
 }
 
 
@@ -76,23 +87,42 @@ void ActsExamples::TrackFindingMLBasedAlgorithm::vector_to_pylist(
 ActsExamples::ProcessCode ActsExamples::TrackFindingMLBasedAlgorithm::execute(
   const ActsExamples::AlgorithmContext& ctx) const 
 {
+  // creating a thread state data structure,
+  // storing thread state pointer
+  // PyGILState_STATE gstate;
+  // gstate = PyGILState_Ensure();
+
   // Read input data
   const auto& spacepoints =
     ctx.eventStore.get<SimSpacePointContainer>(m_cfg.inputSpacePoints);
 
   // Convert Input data to a list of size [num_measurements x measurement_features]
   size_t num_spacepoints = spacepoints.size();
-  size_t num_features = 3; // <TODO> move this to the configuration
+  // input info are [idx, r, phi, z, 'cell_count', 'cell_val', 'leta', 'lphi', 'lx', 'ly', 'lz', 'geta', 'gphi']
+  size_t num_features = 13; // <TODO> move this to the configuration
   std::vector<float> inputMatrix(num_spacepoints * num_features, 0.0);
   ACTS_INFO("Received " << num_spacepoints << " spacepoints");
 
   // <TODO> Make configurable which sp features to use.
   // vectorization is applied automatically?
+  // <ERROR> we use <r, phi, z> as inputs!
   for(size_t idx=0; idx < num_spacepoints; ++idx){
     auto sp = spacepoints[idx];
-    inputMatrix[num_features*idx] = sp.x();
-    inputMatrix[num_features*idx+1] = sp.y();
-    inputMatrix[num_features*idx+2] = sp.z();
+    inputMatrix[num_features*idx] = idx;
+    // cluster position
+    inputMatrix[num_features*idx+1] = sp.x();
+    inputMatrix[num_features*idx+2] = sp.y();
+    inputMatrix[num_features*idx+3] = sp.z();
+    // cluster shape
+    inputMatrix[num_features*idx+4] = 0;
+    inputMatrix[num_features*idx+5] = 0;
+    inputMatrix[num_features*idx+6] = 0;
+    inputMatrix[num_features*idx+7] = 0;
+    inputMatrix[num_features*idx+8] = 0;
+    inputMatrix[num_features*idx+9] = 0;
+    inputMatrix[num_features*idx+10] = 0;
+    inputMatrix[num_features*idx+11] = 0;
+    inputMatrix[num_features*idx+12] = 0;
   }
 
   // Convert C++ vector to Python list
@@ -122,8 +152,13 @@ ActsExamples::ProcessCode ActsExamples::TrackFindingMLBasedAlgorithm::execute(
       if (pTrk && PyList_Check(pTrk)){
         Py_ssize_t num_sps = PyList_Size(pTrk);
         for(Py_ssize_t j=0; j < num_sps; ++j) {
-          pSP = PyList_GetItem(pTrk, j);
+          pSP = PyList_GetItem(pTrk, j); // cannot fail
+          if(!PyLong_Check(pSP)) continue; // Skip non-integers
           auto idx_sp = PyLong_AsLong(pSP);
+          if (idx_sp == -1 && PyErr_Occurred()){
+            // Integer too big to fit in a C long, bail out
+            continue;
+          }
           protoTrack.push_back(spacepoints[idx_sp].measurementIndex());
         }
       }
@@ -133,9 +168,14 @@ ActsExamples::ProcessCode ActsExamples::TrackFindingMLBasedAlgorithm::execute(
     ACTS_WARNING("ML-based Track finding failed");
     protoTracks.push_back(ProtoTrack());
   }
+  Py_DECREF(pArgs);
+  Py_DECREF(pValue);
+
+  // PyGILState_Release(gstate);
 
   // Py_Finalize(); # there are no finalize function... where should I put this?
   ACTS_INFO("Created " << protoTracks.size() << " proto tracks");
   ctx.eventStore.add(m_cfg.outputProtoTracks, std::move(protoTracks));
+
   return ActsExamples::ProcessCode::SUCCESS;
 }

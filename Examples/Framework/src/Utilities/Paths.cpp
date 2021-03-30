@@ -10,7 +10,13 @@
 
 #include "Acts/Utilities/Logger.hpp"
 
+#if __has_include(<charconv>)
 #include <charconv>
+#else
+#include <utility>
+#endif
+
+// #include <charconv>
 #include <cstdio>
 #include <regex>
 #include <sstream>

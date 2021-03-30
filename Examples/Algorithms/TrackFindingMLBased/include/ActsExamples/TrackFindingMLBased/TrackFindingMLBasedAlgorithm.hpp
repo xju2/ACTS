@@ -1,10 +1,12 @@
 #pragma once
 
+#define PY_SSIZE_T_CLEAN
+#include "Python.h"
+
 #include "ActsExamples/EventData/SimSpacePoint.hpp"
 
 #include "ActsExamples/Framework/BareAlgorithm.hpp"
 
-#include "Python.h"
 #include <string>
 #include <vector>
 
@@ -31,6 +33,10 @@ class TrackFindingMLBasedAlgorithm final : public BareAlgorithm {
     /// @param level is the logging level
     TrackFindingMLBasedAlgorithm(Config cfg, Acts::Logging::Level lvl);
 
+    virtual ~TrackFindingMLBasedAlgorithm() {
+      if (Py_IsInitialized()) Py_Finalize();
+    }
+
     /// Framework execute method of the track finding algorithm
     ///
     /// @param ctx is the algorithm context that holds event-wise information
@@ -46,7 +52,7 @@ class TrackFindingMLBasedAlgorithm final : public BareAlgorithm {
       Config m_cfg;
 
       // pointer to the python function
-      PyObject* pFunc;
+      PyObject *pFunc;
 };
 
 }
