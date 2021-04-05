@@ -5,7 +5,7 @@ target_link_libraries(
   ActsExampleTrackFindingMLBased
   PRIVATE
     ActsExamplesFramework
-    ActsExamplesCommonS
+    ActsExamplesCommon
     ActsExamplesIoCsv
     ActsExamplesIoJson
     ActsExamplesIoRoot
@@ -37,7 +37,7 @@ target_link_libraries(
   ROOT::Core ROOT::Hist
   PRIVATE Boost::filesystem dfelibs TBB::tbb
   ActsExamplesFramework
-  ActsExamplesCommonS
+  ActsExamplesCommon
   ActsExamplesIoCsv
   ActsExamplesIoJson
   ActsExamplesIoRoot
