@@ -250,8 +250,8 @@ int main(int argc, char** argv) {
   paramsEstimationCfg.sigmaQOverP = 0.1 / 1._GeV;
   paramsEstimationCfg.sigmaT0 = 1400._s;
   paramsEstimationCfg.keepOneSeed = true;
-  // sequencer.addAlgorithm(std::make_shared<TrackParamsEstimationAlgorithm>(
-  //     paramsEstimationCfg, logLevel));
+  sequencer.addAlgorithm(std::make_shared<TrackParamsEstimationAlgorithm>(
+      paramsEstimationCfg, logLevel));
 
   // Track fitting
   // setup the fitter
@@ -269,8 +269,8 @@ int main(int argc, char** argv) {
   fitter.dFit = TrackFittingAlgorithm::makeTrackFitterFunction(magneticField);
   fitter.fit = TrackFittingAlgorithm::makeTrackFitterFunction(tGeometry,
                                                               magneticField);
-  // sequencer.addAlgorithm(
-  //     std::make_shared<TrackFittingAlgorithm>(fitter, logLevel));
+  sequencer.addAlgorithm(
+      std::make_shared<TrackFittingAlgorithm>(fitter, logLevel));
 
   // write out performance
   // write track finding/seeding performance
@@ -282,8 +282,8 @@ int main(int argc, char** argv) {
       digiCfg.outputMeasurementParticlesMap;
   tfPerfCfg.outputDir = outputDir;
   tfPerfCfg.outputFilename = "performance_seeding_trees.root";
-  // sequencer.addWriter(
-  //     std::make_shared<TrackFinderPerformanceWriter>(tfPerfCfg, logLevel));
+  sequencer.addWriter(
+      std::make_shared<TrackFinderPerformanceWriter>(tfPerfCfg, logLevel));
 
 
   // Write track finding performance data
@@ -295,8 +295,8 @@ int main(int argc, char** argv) {
   // The bottom seed on a pixel detector 'eats' one or two measurements?
   perfWriterCfg.nMeasurementsMin = particleSelectorCfg.nHitsMin;
   perfWriterCfg.outputDir = outputDir;
-  // sequencer.addWriter(
-  //   std::make_shared<CKFPerformanceWriter>(perfWriterCfg, logLevel));
+  sequencer.addWriter(
+    std::make_shared<CKFPerformanceWriter>(perfWriterCfg, logLevel));
 
   return sequencer.run();
 }

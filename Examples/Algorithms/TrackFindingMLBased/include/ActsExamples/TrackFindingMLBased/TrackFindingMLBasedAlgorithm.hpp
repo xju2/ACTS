@@ -1,7 +1,7 @@
 #pragma once
 
 #define PY_SSIZE_T_CLEAN
-#include "Python.h"
+#include <Python.h>
 
 #include "ActsExamples/EventData/SimSpacePoint.hpp"
 
@@ -43,6 +43,7 @@ class TrackFindingMLBasedAlgorithm final : public BareAlgorithm {
     /// @return a process code to steer the algorithm flow
     ActsExamples::ProcessCode execute(
         const ActsExamples::AlgorithmContext& ctx) const final;
+    ActsExamples::ProcessCode execute() const;        
 
     private:
 
@@ -52,7 +53,7 @@ class TrackFindingMLBasedAlgorithm final : public BareAlgorithm {
       Config m_cfg;
 
       // pointer to the python function
-      PyObject *pFunc;
+      PyObject *_pFunc;
 };
 
 }

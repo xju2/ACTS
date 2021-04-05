@@ -9,7 +9,7 @@ void vector_to_pylist(std::vector<float>& hids, PyObject* py_hids) {
   // py_hids = (PyListObject*) PyList_New(0);
   PyObject* pHid;
   for(int i=0; i < (int) hids.size(); ++i){
-    std::cout << "hit id: " << hids.at(i) << std::endl;
+    // std::cout << "hit id: " << hids.at(i) << std::endl;
     pHid = PyFloat_FromDouble(hids.at(i));
     if (!pHid) {
       fprintf(stderr, "Cannot convert argument\n");

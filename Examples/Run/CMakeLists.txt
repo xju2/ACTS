@@ -1,5 +1,6 @@
 # shared code
 add_subdirectory(Common)
+add_subdirectory(CommonS)
 
 # tools
 add_subdirectory(Digitization)

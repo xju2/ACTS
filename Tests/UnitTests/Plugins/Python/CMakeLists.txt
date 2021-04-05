@@ -12,4 +12,4 @@ target_link_libraries(InvokePyFunc PUBLIC ${Python3_LIBRARIES})
 
 
 
-add_executable(PyInTbb py_in_tbb.cpp)
+#add_executable(PyInTbb py_in_tbb.cpp)

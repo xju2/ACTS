@@ -3,7 +3,7 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type configuration" FORCE)
   message(STATUS "Setting default build type: ${CMAKE_BUILD_TYPE}")
 endif() 
-
+# -msse3 -std=c++11 -fsanitize=thread -ltsan
 set(ACTS_CXX_FLAGS "-Wall -Wextra -Wpedantic -Wshadow -Wunused-local-typedefs")
 set(ACTS_CXX_FLAGS_DEBUG "--coverage")
 set(ACTS_CXX_FLAGS_MINSIZEREL "")

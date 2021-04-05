@@ -262,11 +262,11 @@ int ActsExamples::Sequencer::run() {
   size_t nTotalEvents = eventsRange.second - eventsRange.first;
   tbb::task_scheduler_init init(m_cfg.numThreads);
   tbb::parallel_for(
-      tbb::blocked_range<size_t>(eventsRange.first, eventsRange.second),
-      [&](const tbb::blocked_range<size_t>& r) {
-        std::vector<Duration> localClocksAlgorithms(names.size(),
-                                                    Duration::zero());
-
+       tbb::blocked_range<size_t>(eventsRange.first, eventsRange.second),
+	   [&](const tbb::blocked_range<size_t>& r) {
+         std::vector<Duration> localClocksAlgorithms(names.size(),
+                                                     Duration::zero());
+ 
         for (size_t event = r.begin(); event != r.end(); ++event) {
           // Use per-event store
           WhiteBoard eventStore(Acts::getDefaultLogger(
