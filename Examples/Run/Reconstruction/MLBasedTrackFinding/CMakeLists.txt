@@ -10,6 +10,7 @@ target_link_libraries(
     ActsExamplesIoJson
     ActsExamplesIoRoot
     ActsExamplesDetectorGeneric
+    ActsExamplesDetectorTGeo
     ActsExamplesDigitization
     ActsExamplesMagneticField
     ActsExamplesTrackFinding # spacepoint maker should not live here!
@@ -23,6 +24,7 @@ install(
   ActsExampleTrackFindingMLBased
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
+  # =================================================
 
 find_package (Python3 COMPONENTS Interpreter Development)
 
@@ -42,6 +44,7 @@ target_link_libraries(
   ActsExamplesIoJson
   ActsExamplesIoRoot
   ActsExamplesDetectorGeneric
+  ActsExamplesDetectorTGeo
   ActsExamplesDigitization
   ActsExamplesMagneticField
   ActsExamplesTrackFinding # spacepoint maker should not live here!
@@ -61,3 +64,21 @@ install(
   TARGETS
   ActsExampleTrackFindingMLBasedSimple
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+
+  # =================================================
+  add_executable(
+  ActsExampleMeasurements2SP
+  Measurements2Spacepoints.cpp)
+target_link_libraries(
+  ActsExampleMeasurements2SP
+  PRIVATE
+    ActsExamplesFramework
+    ActsExamplesCommon
+    ActsExamplesIoCsv
+    ActsExamplesIoJson
+    ActsExamplesIoRoot
+    ActsExamplesDetectorTGeo
+    ActsExamplesMagneticField
+    ActsExamplesTrackFinding # spacepoint maker should not live here!
+  )

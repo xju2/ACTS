@@ -181,4 +181,11 @@ struct SurfaceData {
                  bound_param5, bound_param6);
 };
 
+struct SpacepointData {
+  uint64_t measurement_id;
+  float x, y, z;
+  float var_r, var_z;
+  DFE_NAMEDTUPLE(SpacepointData, measurement_id, x, y, z, var_r, var_z);
+};
+
 }  // namespace ActsExamples
