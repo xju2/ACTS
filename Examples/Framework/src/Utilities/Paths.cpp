@@ -78,7 +78,7 @@ std::pair<size_t, size_t> ActsExamples::determineEventFilesRange(
 
   // filter matching event files from the directory listing
   std::string filename;
-  // std::regex re("^event([0-9]+)-" + name + "$");
+  std::regex re("^event([0-9]+)-" + name + "$");
   // std::cmatch match;
 
   for (const auto& f : directory_iterator(dir_path)) {
@@ -88,17 +88,22 @@ std::pair<size_t, size_t> ActsExamples::determineEventFilesRange(
     // keep a copy so the match can refer to the underlying const char*
     filename = f.path().filename().native();
     if (filename.find(name) != std::string::npos) {
-      auto end_zeros = filename.find_last_of("0");
-      auto dot_pos = filename.find_first_of("-");
+      std::string::size_type start_pos = 0;
+      std::string::size_type end_pos = 0;
+      for(std::string::size_type idx=5; idx < filename.length(); idx++){
+        if(filename[idx] != '0' && start_pos < 1) start_pos = idx;
+        if(filename[idx] == '-' && end_pos < 1) {
+          end_pos = idx; break;
+        }
+      }
       size_t event = 0;
 
-      end_zeros ++;
-      int length = dot_pos-end_zeros;
+      int length = end_pos-start_pos;
       if (length == 0) {
         length = 1;
-        end_zeros --;
+        start_pos --;
       }
-      event = std::stol(filename.substr(end_zeros, length));
+      event = std::stol(filename.substr(start_pos, length));
 
       // enlarge available event range
       eventMin = std::min(eventMin, event);
