@@ -249,7 +249,7 @@ std::unique_ptr<const Acts::TrackingGeometry> buildDetector(
   // 4 pixel layers
   // configure the central barrel
   pplConfig.centralLayerBinMultipliers = {1, 1};
-  pplConfig.centralLayerRadii = {32., 72., 116., 172.};
+  pplConfig.centralLayerRadii = {34., 72., 116., 172.};
   pplConfig.centralLayerEnvelopes = {pcEnvelope, pcEnvelope, pcEnvelope,
                                      pcEnvelope};
   pplConfig.centralModuleBinningSchema = {
@@ -263,8 +263,9 @@ std::unique_ptr<const Acts::TrackingGeometry> buildDetector(
       pCentralModuleMaterial, pCentralModuleMaterial, pCentralModuleMaterial,
       pCentralModuleMaterial};
   // pitch definitions
-  pplConfig.centralModuleReadoutBinsX = {336, 336, 336, 336};
-  pplConfig.centralModuleReadoutBinsY = {1280, 1280, 1280, 1280};
+  // inner two layers: 25x100 micrometer; outer two layers: 50x50 micrometer
+  pplConfig.centralModuleReadoutBinsX = {336, 336, 168, 168};  // 8.4/336 = 25 micrometer
+  pplConfig.centralModuleReadoutBinsY = {360, 360, 720, 720}; // 36/360 = 100 micrometer
   pplConfig.centralModuleReadoutSide = {-1, -1, -1, -1};
   pplConfig.centralModuleLorentzAngle = {0.12, 0.12, 0.12, 0.12};
 
@@ -305,8 +306,8 @@ std::unique_ptr<const Acts::TrackingGeometry> buildDetector(
   std::vector<size_t> perBP = {40, 68};    // bins in phi
   std::vector<double> perT = {pEndcapModuleT,
                               pEndcapModuleT};  // module thickness
-  std::vector<size_t> perBX = {336, 336};       // bins in x
-  std::vector<size_t> perBY = {1280, 1280};     // bins in y
+  std::vector<size_t> perBX = {168, 168};       // bins in x
+  std::vector<size_t> perBY = {720, 720};       // bins in y
   std::vector<int> perRS = {-1, -1};            // readout side
   std::vector<double> perLA = {0., 0.};         // lorentz angle
   std::vector<std::shared_ptr<const Acts::ISurfaceMaterial>> perM = {
