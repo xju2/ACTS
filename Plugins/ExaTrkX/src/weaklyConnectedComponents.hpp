@@ -14,6 +14,39 @@
 #include <tuple>
 #include <vector>
 
+#ifndef ExaTrkX_USE_CUDA
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/connected_components.hpp>
+
+namespace ExaTrkX {
+template <typename vertex_t, typename edge_t, typename weight_t>
+void weaklyConnectedComponents(
+  vertex_t numNodes,
+  std::vector<vertex_t>& rowIndices,
+  std::vector<vertex_t>& colIndices,
+  std::vector<weight_t>& edgeWeights,
+  std::vector<vertex_t>& trackLabels) 
+{
+  typedef
+    boost::adjacency_list<
+    boost::vecS            // edge list
+  , boost::vecS            // vertex list
+  , boost::undirectedS     // directedness
+  , boost::no_property     // property associated with vertices
+  , float                  // property associated with edges
+  > Graph; 
+
+  Graph g(numNodes);
+  for(size_t idx=0; idx < rowIndices.size(); ++idx) {
+    boost::add_edge(
+      rowIndices[idx], colIndices[idx], edgeWeights[idx], g);
+  }
+  size_t num_components = boost::connected_components(g, &trackLabels[0]);
+
+}
+}
+#else
+
 #include <boost/range/combine.hpp>
 #include <cugraph/algorithms.hpp>
 #include <cugraph/graph.hpp>
@@ -36,12 +69,15 @@
               cudaStatus);                                                    \
   }
 #endif  // CUDA_RT_CALL
-
+namespace ExaTrkX {
 template <typename vertex_t, typename edge_t, typename weight_t>
-__global__ void weaklyConnectedComponents(std::vector<vertex_t>& rowIndices,
-                                          std::vector<vertex_t>& colIndices,
-                                          std::vector<weight_t>& edgeWeights,
-                                          std::vector<vertex_t>& trackLabels) {
+__global__ void weaklyConnectedComponents(
+  vertex_t numNodes,
+  std::vector<vertex_t>& rowIndices,
+  std::vector<vertex_t>& colIndices,
+  std::vector<weight_t>& edgeWeights,
+  std::vector<vertex_t>& trackLabels) 
+{
   cudaStream_t stream;
   CUDA_RT_CALL(cudaStreamCreate(&stream));
 
@@ -49,6 +85,7 @@ __global__ void weaklyConnectedComponents(std::vector<vertex_t>& rowIndices,
   // std::cout << "edge size: " << rowIndices.size() << " " << colIndices.size()
   // << std::endl;
   raft::handle_t handle{stream};
+  std::cout << "WCC with handle " << std::endl;
 
   cugraph::graph_t<vertex_t, edge_t, weight_t, false, false> graph(handle);
 
@@ -66,13 +103,13 @@ __global__ void weaklyConnectedComponents(std::vector<vertex_t>& rowIndices,
 #endif
 
   // learn from matrix_market_file_utilities.cu
-  vertex_t maxVertexID_row =
-      *std::max_element(rowIndices.begin(), rowIndices.end());
-  vertex_t maxVertexID_col =
-      *std::max_element(colIndices.begin(), colIndices.end());
-  vertex_t maxVertex = std::max(maxVertexID_row, maxVertexID_col);
+  // vertex_t maxVertexID_row =
+  //     *std::max_element(rowIndices.begin(), rowIndices.end());
+  // vertex_t maxVertexID_col =
+  //     *std::max_element(colIndices.begin(), colIndices.end());
+  // vertex_t maxVertex = std::max(maxVertexID_row, maxVertexID_col);
 
-  vertex_t number_of_vertices = maxVertex;
+  vertex_t number_of_vertices = numNodes;
   rmm::device_uvector<vertex_t> d_vertices(number_of_vertices,
                                            handle.get_stream());
   std::vector<vertex_t> vertex_idx(number_of_vertices);
@@ -85,6 +122,7 @@ __global__ void weaklyConnectedComponents(std::vector<vertex_t>& rowIndices,
   rmm::device_uvector<weight_t> weights_v(edgeWeights.size(),
                                           handle.get_stream());
 
+  std::cout << "WCC update device " << std::endl;
   raft::update_device(src_v.data(), rowIndices.data(), rowIndices.size(),
                       handle.get_stream());
   raft::update_device(dst_v.data(), colIndices.data(), colIndices.size(),
@@ -94,6 +132,7 @@ __global__ void weaklyConnectedComponents(std::vector<vertex_t>& rowIndices,
   raft::update_device(d_vertices.data(), vertex_idx.data(), vertex_idx.size(),
                       handle.get_stream());
 
+  std::cout << "WCC create_graph_from_edgelist" << std::endl;
   std::tie(graph, std::ignore) =
       cugraph::create_graph_from_edgelist<vertex_t, edge_t, weight_t, false,
                                           false>(
@@ -101,17 +140,24 @@ __global__ void weaklyConnectedComponents(std::vector<vertex_t>& rowIndices,
           std::move(weights_v), cugraph::graph_properties_t{true, false},
           false);
 
+std::cout << "WCC created graph" << std::endl;
   auto graph_view = graph.view();
+  std::cout << "WCC to sync " << std::endl;
   CUDA_TRY(cudaDeviceSynchronize());  // for consistent performance measurement
 
+  std::cout << "WCC start " << std::endl;
   rmm::device_uvector<vertex_t> d_components(
       graph_view.get_number_of_vertices(), handle.get_stream());
 
   // std::cout << "2back from construct_graph" << std::endl;
   cugraph::weakly_connected_components(handle, graph_view, d_components.data());
 
-  // std::cout << "number of components: " << d_components.size() << std::endl;
+  
 
   raft::update_host(trackLabels.data(), d_components.data(),
                     d_components.size(), handle.get_stream());
+
+  std::cout << "Finished weakly connected components " << std::endl;
 }
+}
+#endif

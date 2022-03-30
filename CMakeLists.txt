@@ -159,7 +159,7 @@ if (ACTS_SETUP_BOOST)
     # NOTE we use boost::filesystem instead of std::filesystem since the later
     # is not uniformly supported even on compilers that nominally support C++17
     # NOTE FindBoost.cmake looks for BoostConfig.cmake first, before running it's own logic.
-    find_package(Boost ${_acts_boost_version} REQUIRED COMPONENTS filesystem program_options unit_test_framework)
+    find_package(Boost ${_acts_boost_version} REQUIRED COMPONENTS filesystem program_options unit_test_framework graph)
   else()
     add_subdirectory(thirdparty/boost)
   endif()

@@ -28,7 +28,7 @@ class ExaTrkXTrackFinding {
     std::string inputMLModuleDir;
 
     // hyperparameters in the pipeline.
-    int64_t spacepointFeatures = 3;
+    int64_t spacepointFeatures = 3; // check TrackFindingExaTrkX before changing it!
     int embeddingDim = 8;
     float rVal = 1.6;
     int knnVal = 500;

@@ -40,6 +40,7 @@ target_link_libraries(
   PRIVATE
     frnn
     cugraph
+    Boost::graph
 )
 
 target_link_libraries(
