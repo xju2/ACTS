@@ -13,6 +13,8 @@
 #include "ActsExamples/EventData/SimSpacePoint.hpp"
 #include "ActsExamples/Framework/WhiteBoard.hpp"
 
+#include <cmath>
+
 ActsExamples::TrackFindingAlgorithmExaTrkX::TrackFindingAlgorithmExaTrkX(
     Config config, Acts::Logging::Level level)
     : ActsExamples::BareAlgorithm("TrackFindingMLBasedAlgorithm", level),
@@ -46,9 +48,9 @@ ActsExamples::ProcessCode ActsExamples::TrackFindingAlgorithmExaTrkX::execute(
   for (const auto& sp : spacepoints) {
     float x = sp.x();
     float y = sp.y();
-    float z = sp.z();
-    float r = sp.r();
-    float phi = std::atan2(y, x);
+    float z = sp.z() / 1000.;
+    float r = sp.r() / 1000.;
+    float phi = std::atan2(y, x) / M_PI;
     inputValues.push_back(r);
     inputValues.push_back(phi);
     inputValues.push_back(z);
@@ -63,6 +65,9 @@ ActsExamples::ProcessCode ActsExamples::TrackFindingAlgorithmExaTrkX::execute(
   std::vector<ProtoTrack> protoTracks;
   protoTracks.reserve(trackCandidates.size());
   for (auto& x : trackCandidates) {
+    if (x.size() < 4) {
+      continue;
+    }
     ProtoTrack onetrack;
     std::copy(x.begin(), x.end(), std::back_inserter(onetrack));
     protoTracks.push_back(std::move(onetrack));

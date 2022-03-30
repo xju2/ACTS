@@ -11,7 +11,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # determine project version; sets _acts_version and _acts_commit_hash
 include(ActsRetrieveVersion)
 
-project(Acts VERSION ${_acts_version} LANGUAGES CXX)
+project(Acts VERSION ${_acts_version} LANGUAGES CXX CUDA)
 
 # build options
 
@@ -253,10 +253,8 @@ if(ACTS_BUILD_PLUGIN_TGEO)
   check_root_compatibility()
 endif()
 if(ACTS_BUILD_PLUGIN_EXATRKX)
-  enable_cuda()
-  find_package(CUDAToolkit REQUIRED)
   find_package(Torch REQUIRED)
-  find_package(OnnxRuntime REQUIRED)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
   find_package(cugraph REQUIRED)
   add_subdirectory(thirdparty/libFRNN)
 endif()

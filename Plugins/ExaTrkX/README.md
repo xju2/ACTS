@@ -8,7 +8,7 @@ To build the plugin, enable the appropriate CMake options:
 
 ```cmake
 cmake -B <builddir> -S <srcdir> \
-  -D ACTS_BUILD_EXATRKX_PLUGIN=ON \
+  -D ACTS_BUILD_PLUGIN_EXATRKX=ON \
   -D ACTS_BUILD_EXAMPLES_EXATRKX=ON \
   -D ACTS_BUILD_EXAMPLES_PYTHON_BINDINGS=ON \
   -D CMAKE_PREFIX_PATH=<path-to-installed-dependencies-if-not-in-default-paths>

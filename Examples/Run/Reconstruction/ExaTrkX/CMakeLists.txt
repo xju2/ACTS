@@ -11,8 +11,9 @@ target_link_libraries(
     ActsExamplesDetectorGeneric
     ActsExamplesIoPerformance
     ActsExamplesTrackFindingExaTrkX
-    ActsPluginExaTrkX
+    # ActsPluginExaTrkX
     Boost::filesystem
+    Boost::program_options
 )
 
 install(

@@ -8,7 +8,6 @@
 
 #include "Acts/Plugins/ExaTrkX/ExaTrkXTrackFinding.hpp"
 
-#include <core/session/onnxruntime_cxx_api.h>
 #include <counting_sort.h>
 #include <cuda.h>
 #include <cuda_runtime_api.h>
@@ -32,47 +31,20 @@ Acts::ExaTrkXTrackFinding::ExaTrkXTrackFinding(const Config& config)
   std::cout << "k-nearest neigbour : " << m_cfg.knnVal << "\n";
   std::cout << "filtering cut      : " << m_cfg.filterCut << "\n";
 
-  m_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "ExaTrkX");
-  std::string embedModelPath{m_cfg.inputMLModuleDir + "/embedding.onnx"};
-  std::string filterModelPath(m_cfg.inputMLModuleDir + "/filtering.onnx");
-  std::string gnnModelPath(m_cfg.inputMLModuleDir + "/gnn.onnx");
-  // <TODO: improve the call to avoid calling copying construtors >
-
-  Ort::SessionOptions session_options;
-  session_options.SetIntraOpNumThreads(1);
-  // OrtStatus* status =
-  // OrtSessionOptionsAppendExecutionProvider_CUDA(session_options, 0);
-  session_options.SetGraphOptimizationLevel(
-      GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
-
-  e_sess = std::make_unique<Ort::Session>(*m_env, embedModelPath.c_str(),
-                                          session_options);
-  f_sess = std::make_unique<Ort::Session>(*m_env, filterModelPath.c_str(),
-                                          session_options);
-  g_sess = std::make_unique<Ort::Session>(*m_env, gnnModelPath.c_str(),
-                                          session_options);
-}
-
-void Acts::ExaTrkXTrackFinding::runSessionWithIoBinding(
-    Ort::Session& sess, std::vector<const char*>& inputNames,
-    std::vector<Ort::Value>& inputData, std::vector<const char*>& outputNames,
-    std::vector<Ort::Value>& outputData) const {
-  // std::cout <<"In the runSessionWithIoBinding" << std::endl;
-  if (inputNames.size() < 1) {
-    throw std::runtime_error("Onnxruntime input data maping cannot be empty");
+  std::string l_embedModelPath(m_cfg.inputMLModuleDir + "/embed.pt");
+  std::string l_filterModelPath(m_cfg.inputMLModuleDir + "/filter.pt");
+  std::string l_gnnModelPath(m_cfg.inputMLModuleDir + "/gnn.pt");
+  c10::InferenceMode guard(true);
+  try {   
+      e_model = torch::jit::load(l_embedModelPath.c_str());
+      e_model.eval();
+      f_model = torch::jit::load(l_filterModelPath.c_str());
+      f_model.eval();
+      g_model = torch::jit::load(l_gnnModelPath.c_str());
+      g_model.eval();
+  } catch (const c10::Error& e) {
+      throw std::invalid_argument("Failed to load models: " + e.msg()); 
   }
-  assert(inputNames.size() == inputData.size());
-
-  Ort::IoBinding iobinding(sess);
-  for (size_t idx = 0; idx < inputNames.size(); ++idx) {
-    iobinding.BindInput(inputNames[idx], inputData[idx]);
-  }
-
-  for (size_t idx = 0; idx < outputNames.size(); ++idx) {
-    iobinding.BindOutput(outputNames[idx], outputData[idx]);
-  }
-
-  sess.Run(Ort::RunOptions{nullptr}, iobinding);
 }
 
 void Acts::ExaTrkXTrackFinding::buildEdges(std::vector<float>& embedFeatures,
@@ -237,14 +209,12 @@ void Acts::ExaTrkXTrackFinding::getTracks(
     std::vector<float>& inputValues, std::vector<uint32_t>& spacepointIDs,
     std::vector<std::vector<uint32_t> >& trackCandidates) const {
   // hardcoded debugging information
+  c10::InferenceMode guard(true);
   bool debug = true;
   const std::string embedding_outname = "debug_embedding_outputs.txt";
   const std::string edgelist_outname = "debug_edgelist_outputs.txt";
   const std::string filtering_outname = "debug_filtering_scores.txt";
-
-  Ort::AllocatorWithDefaultOptions allocator;
-  auto memoryInfo = Ort::MemoryInfo::CreateCpu(
-      OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault);
+  torch::Device device(torch::kCUDA);
 
   // printout the r,phi,z of the first spacepoint
   std::cout << "First spacepoint information: " << inputValues.size() << "\n\t";
@@ -257,28 +227,25 @@ void Acts::ExaTrkXTrackFinding::getTracks(
   // ************
 
   int64_t numSpacepoints = inputValues.size() / m_cfg.spacepointFeatures;
-  std::vector<int64_t> eInputShape{numSpacepoints, m_cfg.spacepointFeatures};
-
-  std::vector<const char*> eInputNames{"sp_features"};
-  std::vector<Ort::Value> eInputTensor;
-  eInputTensor.push_back(Ort::Value::CreateTensor<float>(
-      memoryInfo, inputValues.data(), inputValues.size(), eInputShape.data(),
-      eInputShape.size()));
-
-  std::vector<float> eOutputData(numSpacepoints * m_cfg.embeddingDim);
-  std::vector<const char*> eOutputNames{"embedding_output"};
-  std::vector<int64_t> eOutputShape{numSpacepoints, m_cfg.embeddingDim};
-  std::vector<Ort::Value> eOutputTensor;
-  eOutputTensor.push_back(Ort::Value::CreateTensor<float>(
-      memoryInfo, eOutputData.data(), eOutputData.size(), eOutputShape.data(),
-      eOutputShape.size()));
-  runSessionWithIoBinding(*e_sess, eInputNames, eInputTensor, eOutputNames,
-                          eOutputTensor);
-
-  std::cout << "Embedding space of the first SP: ";
-  std::copy(eOutputData.begin(), eOutputData.begin() + m_cfg.embeddingDim,
-            std::ostream_iterator<float>(std::cout, " "));
+  std::vector<torch::jit::IValue> eInputTensorJit;
+  auto e_opts = torch::TensorOptions().dtype(torch::kFloat32);
+  torch::Tensor eLibInputTensor = torch::from_blob(
+      inputValues.data(),
+      {numSpacepoints, m_cfg.spacepointFeatures},
+      e_opts).to(torch::kFloat32);
+  eInputTensorJit.push_back(eLibInputTensor.to(device));
+  at::Tensor eOutput = e_model.forward(eInputTensorJit).toTensor();
+  std::cout <<"Embedding space of libtorch the first SP: \n";
+  std::cout << eOutput.slice(/*dim=*/0, /*start=*/0, /*end=*/1) << std::endl;
   std::cout << std::endl;
+
+  eOutput = eOutput.cpu();
+
+  std::vector<float> eOutputData;
+  std::copy(eOutput.data_ptr<float>(),
+            eOutput.data_ptr<float>() + eOutput.numel(),
+            std::back_inserter(eOutputData));
+
   if (debug) {
     std::fstream out(embedding_outname, out.out);
     if (!out.is_open()) {
@@ -292,6 +259,8 @@ void Acts::ExaTrkXTrackFinding::getTracks(
   // ************
   // Building Edges
   // ************
+
+  //TODO: use torch:tensor instead.
   std::vector<int64_t> edgeList;
   buildEdges(eOutputData, edgeList, numSpacepoints);
   int64_t numEdges = edgeList.size() / 2;
@@ -317,82 +286,53 @@ void Acts::ExaTrkXTrackFinding::getTracks(
   // ************
   // Filtering
   // ************
-  std::vector<const char*> fInputNames{"f_nodes", "f_edges"};
-  std::vector<Ort::Value> fInputTensor;
-  fInputTensor.push_back(std::move(eInputTensor[0]));
-  std::vector<int64_t> fEdgeShape{2, numEdges};
-  fInputTensor.push_back(Ort::Value::CreateTensor<int64_t>(
-      memoryInfo, edgeList.data(), edgeList.size(), fEdgeShape.data(),
-      fEdgeShape.size()));
-
-  // filtering outputs
-  std::vector<const char*> fOutputNames{"f_edge_score"};
-  std::vector<float> fOutputData(numEdges);
-  std::vector<int64_t> fOutputShape{numEdges, 1};
-  std::vector<Ort::Value> fOutputTensor;
-  fOutputTensor.push_back(Ort::Value::CreateTensor<float>(
-      memoryInfo, fOutputData.data(), fOutputData.size(), fOutputShape.data(),
-      fOutputShape.size()));
-  runSessionWithIoBinding(*f_sess, fInputNames, fInputTensor, fOutputNames,
-                          fOutputTensor);
-
   std::cout << "Get scores for " << numEdges << " edges." << std::endl;
-  // However, I have to convert those numbers to a score by applying sigmoid!
   // Use torch::tensor
   torch::Tensor edgeListCTen = torch::tensor(edgeList, {torch::kInt64});
+  edgeListCTen = edgeListCTen.to(device);
   edgeListCTen = edgeListCTen.reshape({2, numEdges});
 
-  torch::Tensor fOutputCTen = torch::tensor(fOutputData, {torch::kFloat32});
-  fOutputCTen = fOutputCTen.sigmoid();
+  std::cout << "Prepare inputs for filtering" << std::endl;
 
-  if (debug) {
-    std::fstream out(filtering_outname, out.out);
-    if (!out.is_open()) {
-      std::cout << "failed to open " << filtering_outname << '\n';
-    } else {
-      std::copy(fOutputCTen.data_ptr<float>(),
-                fOutputCTen.data_ptr<float>() + fOutputCTen.numel(),
-                std::ostream_iterator<float>(out, " "));
-    }
-  }
+  std::vector<torch::jit::IValue> fInputTensorJit;
+  fInputTensorJit.push_back(eLibInputTensor.to(device));
+  fInputTensorJit.push_back(edgeListCTen.to(device));
+  at::Tensor fOutputCTen = f_model.forward(fInputTensorJit).toTensor();
+  fOutputCTen.squeeze_();
+  fOutputCTen.sigmoid_();
+
+  std::cout << "After filtering" << std::endl;
+
+  // if (debug) {
+  //   std::fstream out(filtering_outname, out.out);
+  //   if (!out.is_open()) {
+  //     std::cout << "failed to open " << filtering_outname << '\n';
+  //   } else {
+  //     std::copy(fOutputCTen.data_ptr<float>(),
+  //               fOutputCTen.data_ptr<float>() + fOutputCTen.numel(),
+  //               std::ostream_iterator<float>(out, " "));
+  //   }
+  // }
+
   // std::cout << fOutputCTen.slice(0, 0, 3) << std::endl;
   torch::Tensor filterMask = fOutputCTen > m_cfg.filterCut;
-  torch::Tensor edgesAfterFCTen = edgeListCTen.index({Slice(), filterMask});
-
-  std::vector<int64_t> edgesAfterFiltering;
-  std::copy(edgesAfterFCTen.data_ptr<int64_t>(),
-            edgesAfterFCTen.data_ptr<int64_t>() + edgesAfterFCTen.numel(),
-            std::back_inserter(edgesAfterFiltering));
-
-  int64_t numEdgesAfterF = edgesAfterFiltering.size() / 2;
+  torch::Tensor edgesAfterF = edgeListCTen.index({Slice(), filterMask});
+  int64_t numEdgesAfterF = edgesAfterF.size(1);
   std::cout << "After filtering: " << numEdgesAfterF << " edges." << std::endl;
 
   // ************
   // GNN
   // ************
-  std::vector<const char*> gInputNames{"g_nodes", "g_edges"};
-  std::vector<Ort::Value> gInputTensor;
-  gInputTensor.push_back(std::move(fInputTensor[0]));
-  std::vector<int64_t> gEdgeShape{2, numEdgesAfterF};
-  gInputTensor.push_back(Ort::Value::CreateTensor<int64_t>(
-      memoryInfo, edgesAfterFiltering.data(), edgesAfterFiltering.size(),
-      gEdgeShape.data(), gEdgeShape.size()));
-  // gnn outputs
-  std::vector<const char*> gOutputNames{"gnn_edge_score"};
-  std::vector<float> gOutputData(numEdgesAfterF);
-  std::vector<int64_t> gOutputShape{numEdgesAfterF};
-  std::vector<Ort::Value> gOutputTensor;
-  gOutputTensor.push_back(Ort::Value::CreateTensor<float>(
-      memoryInfo, gOutputData.data(), gOutputData.size(), gOutputShape.data(),
-      gOutputShape.size()));
+  std::vector<torch::jit::IValue> gInputTensorJit;
+  // auto g_opts = torch::TensorOptions().dtype(torch::kInt64);
+  gInputTensorJit.push_back(eLibInputTensor.to(device));
+  gInputTensorJit.push_back(edgesAfterF.to(device));
+  auto gOutputCTen = g_model.forward(gInputTensorJit).toTensor();
+  gOutputCTen.sigmoid_();
+  gOutputCTen = gOutputCTen.cpu();
 
-  std::cout << "run ONNX session\n";
-  runSessionWithIoBinding(*g_sess, gInputNames, gInputTensor, gOutputNames,
-                          gOutputTensor);
-  std::cout << "done with ONNX session\n";
+  edgesAfterF = edgesAfterF.cpu();
 
-  torch::Tensor gOutputCTen = torch::tensor(gOutputData, {torch::kFloat32});
-  gOutputCTen = gOutputCTen.sigmoid();
   std::cout << gOutputCTen.slice(0, 0, 3) << std::endl;
 
   // ************
@@ -402,11 +342,12 @@ void Acts::ExaTrkXTrackFinding::getTracks(
   std::vector<int32_t> colIndices;
   std::vector<float> edgeWeights;
   std::vector<int32_t> trackLabels(numSpacepoints);
-  std::copy(edgesAfterFiltering.begin(),
-            edgesAfterFiltering.begin() + numEdgesAfterF,
+  std::copy(edgesAfterF.data_ptr<int64_t>(),
+            edgesAfterF.data_ptr<int64_t>()+numEdgesAfterF,
             std::back_insert_iterator(rowIndices));
-  std::copy(edgesAfterFiltering.begin() + numEdgesAfterF,
-            edgesAfterFiltering.end(), std::back_insert_iterator(colIndices));
+  std::copy(edgesAfterF.data_ptr<int64_t>()+numEdgesAfterF,
+            edgesAfterF.data_ptr<int64_t>()+edgesAfterF.numel(),
+            std::back_insert_iterator(colIndices));
   std::copy(gOutputCTen.data_ptr<float>(),
             gOutputCTen.data_ptr<float>() + numEdgesAfterF,
             std::back_insert_iterator(edgeWeights));

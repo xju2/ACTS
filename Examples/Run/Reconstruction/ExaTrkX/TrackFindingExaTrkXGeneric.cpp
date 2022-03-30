@@ -16,8 +16,8 @@
 #include "ActsExamples/Io/Csv/CsvParticleReader.hpp"  // for evaluating performance
 #include "ActsExamples/Io/Csv/CsvSimHitReader.hpp"
 #include "ActsExamples/Io/Json/JsonDigitizationConfig.hpp"  // to read digi config
-#include "ActsExamples/Io/Performance/CKFPerformanceWriter.hpp"
-#include "ActsExamples/Io/Performance/TrackFinderPerformanceWriter.hpp"
+// #include "ActsExamples/Io/Performance/CKFPerformanceWriter.hpp"
+// #include "ActsExamples/Io/Performance/TrackFinderPerformanceWriter.hpp"
 #include "ActsExamples/MagneticField/MagneticFieldOptions.hpp"
 #include "ActsExamples/Options/CommonOptions.hpp"
 #include "ActsExamples/TrackFinding/SpacePointMaker.hpp"
@@ -257,25 +257,25 @@ int main(int argc, char** argv) {
 
   // write out performance
   // write track finding/seeding performance
-  TrackFinderPerformanceWriter::Config tfPerfCfg;
-  tfPerfCfg.inputProtoTracks = trkFinderCfg.outputProtoTracks;
-  // using selected particles
-  tfPerfCfg.inputParticles = inputParticles;
-  tfPerfCfg.inputMeasurementParticlesMap =
-      digiCfg.outputMeasurementParticlesMap;
-  sequencer.addWriter(
-      std::make_shared<TrackFinderPerformanceWriter>(tfPerfCfg, logLevel));
+//   TrackFinderPerformanceWriter::Config tfPerfCfg;
+//   tfPerfCfg.inputProtoTracks = trkFinderCfg.outputProtoTracks;
+//   // using selected particles
+//   tfPerfCfg.inputParticles = inputParticles;
+//   tfPerfCfg.inputMeasurementParticlesMap =
+//       digiCfg.outputMeasurementParticlesMap;
+//   sequencer.addWriter(
+//       std::make_shared<TrackFinderPerformanceWriter>(tfPerfCfg, logLevel));
 
   // Write track finding performance data
-  CKFPerformanceWriter::Config perfWriterCfg;
-  perfWriterCfg.inputParticles = inputParticles;
-  perfWriterCfg.inputTrajectories = fitter.outputTrajectories;
-  perfWriterCfg.inputMeasurementParticlesMap =
-      digiCfg.outputMeasurementParticlesMap;
-  // The bottom seed on a pixel detector 'eats' one or two measurements?
-  perfWriterCfg.nMeasurementsMin = particleSelectorCfg.nHitsMin;
-  sequencer.addWriter(
-      std::make_shared<CKFPerformanceWriter>(perfWriterCfg, logLevel));
+//   CKFPerformanceWriter::Config perfWriterCfg;
+//   perfWriterCfg.inputParticles = inputParticles;
+//   perfWriterCfg.inputTrajectories = fitter.outputTrajectories;
+//   perfWriterCfg.inputMeasurementParticlesMap =
+//       digiCfg.outputMeasurementParticlesMap;
+//   // The bottom seed on a pixel detector 'eats' one or two measurements?
+//   perfWriterCfg.nMeasurementsMin = particleSelectorCfg.nHitsMin;
+//   sequencer.addWriter(
+//       std::make_shared<CKFPerformanceWriter>(perfWriterCfg, logLevel));
 
   return sequencer.run();
 }

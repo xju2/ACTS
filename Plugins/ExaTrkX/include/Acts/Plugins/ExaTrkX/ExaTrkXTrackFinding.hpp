@@ -12,7 +12,9 @@
 #include <string>
 #include <vector>
 
-#include <core/session/onnxruntime_cxx_api.h>
+#include <torch/torch.h>
+#include <torch/script.h>
+using namespace torch::indexing;
 
 namespace Acts {
 
@@ -57,21 +59,14 @@ class ExaTrkXTrackFinding {
   const Config& config() const { return m_cfg; }
 
  private:
-  void runSessionWithIoBinding(Ort::Session& sess,
-                               std::vector<const char*>& inputNames,
-                               std::vector<Ort::Value>& inputData,
-                               std::vector<const char*>& outputNames,
-                               std::vector<Ort::Value>& outputData) const;
-
   void buildEdges(std::vector<float>& embedFeatures,
                   std::vector<int64_t>& edgeList, int64_t numSpacepoints) const;
 
  private:
   Config m_cfg;
-  std::unique_ptr<Ort::Env> m_env;
-  std::unique_ptr<Ort::Session> e_sess;
-  std::unique_ptr<Ort::Session> f_sess;
-  std::unique_ptr<Ort::Session> g_sess;
+  mutable torch::jit::script::Module e_model;
+  mutable torch::jit::script::Module f_model;
+  mutable torch::jit::script::Module g_model;
 };
 
 }  // namespace Acts
